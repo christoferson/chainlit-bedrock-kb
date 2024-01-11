@@ -5,11 +5,21 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ChatMessageHistory, ConversationBufferMemory
 from langchain.retrievers import AmazonKnowledgeBasesRetriever
 import chainlit as cl
+from typing import Optional
 
 aws_region = os.environ["AWS_REGION"]
 aws_profile = os.environ["AWS_PROFILE"]
 
 knowledge_base_id = os.environ["BEDROCK_KB_ID"]
+
+@cl.password_auth_callback
+def auth_callback(username: str, password: str) -> Optional[cl.User]:
+  # Fetch the user matching username from your database
+  # and compare the hashed password with the value stored in the database
+  if (username, password) == ("admin", "admin"):
+    return cl.User(identifier="admin", metadata={"role": "admin", "provider": "credentials"})
+  else:
+    return None
 
 @cl.on_chat_start
 async def main():
@@ -21,8 +31,7 @@ async def main():
     bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
 
     response = bedrock.list_foundation_models(byOutputModality="TEXT")
-    
-    model_ids = []
+
     for item in response["modelSummaries"]:
         print(item['modelId'])
 
@@ -30,7 +39,7 @@ async def main():
 
     llm = BedrockChat(
         client = bedrock_runtime,
-        model_id = "anthropic.claude-v2:1",
+        model_id = "anthropic.claude-v2", 
         model_kwargs = {
             "temperature": 0,
             "max_tokens_to_sample": 1024,
