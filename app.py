@@ -1,26 +1,101 @@
+import os
+import boto3
+from langchain.chat_models import BedrockChat
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ChatMessageHistory, ConversationBufferMemory
+from langchain.retrievers import AmazonKnowledgeBasesRetriever
 import chainlit as cl
 
+aws_region = os.environ["AWS_REGION"]
+aws_profile = os.environ["AWS_PROFILE"]
 
-@cl.step
-def tool():
-    return "Response from the tool!"
+knowledge_base_id = os.environ["BEDROCK_KB_ID"]
 
+@cl.on_chat_start
+async def main():
 
-@cl.on_message  # this function will be called every time a user inputs a message in the UI
+    ##
+    print(f"Profile: {aws_profile} Region: {aws_region}")
+    bedrock = boto3.client("bedrock", region_name=aws_region)
+    bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
+    bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
+
+    response = bedrock.list_foundation_models(byOutputModality="TEXT")
+    
+    model_ids = []
+    for item in response["modelSummaries"]:
+        print(item['modelId'])
+
+    ##
+
+    llm = BedrockChat(
+        client = bedrock_runtime,
+        model_id = "anthropic.claude-v2:1",
+        model_kwargs = {
+            "temperature": 0,
+            "max_tokens_to_sample": 1024,
+        }
+    )
+
+    message_history = ChatMessageHistory()
+    
+    retriever = AmazonKnowledgeBasesRetriever(
+        client = bedrock_agent_runtime,
+        knowledge_base_id = knowledge_base_id,
+        retrieval_config = {
+            "vectorSearchConfiguration": {
+                "numberOfResults": 2
+            }
+        }
+    )
+
+    memory = ConversationBufferMemory(
+        memory_key = "chat_history",
+        output_key = "answer",
+        chat_memory = message_history,
+        return_messages = True,
+    )
+    
+    chain = ConversationalRetrievalChain.from_llm(
+        llm,
+        chain_type = "stuff",
+        retriever = retriever,
+        memory = memory,
+        return_source_documents = True,
+        verbose = True
+    )
+
+    # Store the chain in the user session
+    cl.user_session.set("chain", chain)
+
+@cl.on_message
 async def main(message: cl.Message):
-    """
-    This function is called every time a user inputs a message in the UI.
-    It sends back an intermediate response from the tool, followed by the final answer.
 
-    Args:
-        message: The user's message.
+    # Retrieve the chain from the user session
+    chain = cl.user_session.get("chain")
 
-    Returns:
-        None.
-    """
+    res = await chain.acall(
+        message.content, 
+        callbacks=[cl.AsyncLangchainCallbackHandler()]
+    )
+    answer = res["answer"]
+    source_documents = res["source_documents"]  # type: List[Document]
 
-    # Call the tool
-    tool()
+    text_elements = []  # type: List[cl.Text]
 
-    # Send the final answer.
-    await cl.Message(content="This is the final answer").send()
+    if source_documents:
+        for source_idx, source_doc in enumerate(source_documents):
+            source_name = f"source_{source_idx}"
+            # Create the text element referenced in the message
+            text_elements.append(
+                cl.Text(content=source_doc.page_content, name=source_name)
+            )
+        source_names = [text_el.name for text_el in text_elements]
+
+        if source_names:
+            answer += f"\nSources: {', '.join(source_names)}"
+        else:
+            answer += "\nNo sources found"
+
+    await cl.Message(content=answer, elements=text_elements).send()
+
