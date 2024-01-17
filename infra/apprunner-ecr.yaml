@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+
+  ContainerImageUri:
+    Type: String
+    Default: "public.ecr.aws/aws-containers/hello-app-runner:latest"
+
+  ContainerServicePort:
+    Type: String
+    Default: "8000"
+
+  ContainerRepositoryType:
+    Type: String
+    Default: "ECR"
+
+Resources:
+
+  AppRunnerServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - build.apprunner.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+
+  AppRunnerInstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - tasks.apprunner.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      ManagedPolicyArns:
+        - !Ref AppRunnerInstanceRolePolicy
+
+  AppRunnerInstanceRolePolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      Description: "App Runner Instance Role ManagedPolicy"
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+              - 's3:GetObjectVersion'
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - 'bedrock:*'
+            Effect: Allow
+            Resource: '*'
+
+  AppRunnerService:
+    Type: AWS::AppRunner::Service
+    Properties:
+      #ServiceName: 
+      SourceConfiguration:
+        AuthenticationConfiguration:
+          AccessRoleArn: !GetAtt AppRunnerServiceRole.Arn
+        AutoDeploymentsEnabled: true
+        ImageRepository:
+          ImageIdentifier: !Ref ContainerImageUri
+          ImageRepositoryType: !Ref ContainerRepositoryType
+          ImageConfiguration:
+            Port: !Ref ContainerServicePort
+      InstanceConfiguration:
+        Cpu: 1 vCPU
+        Memory: 2 GB
+        InstanceRoleArn: !GetAtt AppRunnerInstanceRole.Arn 
+
+Outputs:    
+
+  AppRunnerServiceUrl:
+    Value: !GetAtt AppRunnerService.ServiceUrl
