@@ -1,14 +1,14 @@
 import os
 import boto3
-from langchain.chat_models import BedrockChat
+from langchain_community.chat_models import BedrockChat
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ChatMessageHistory, ConversationBufferMemory
-from langchain.retrievers import AmazonKnowledgeBasesRetriever
+from langchain_community.retrievers import AmazonKnowledgeBasesRetriever
 import chainlit as cl
 from typing import Optional
 
 aws_region = os.environ["AWS_REGION"]
-aws_profile = os.environ["AWS_PROFILE"]
+#aws_profile = os.environ["AWS_PROFILE"]
 
 knowledge_base_id = os.environ["BEDROCK_KB_ID"]
 
@@ -25,7 +25,7 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
 async def main():
 
     ##
-    print(f"Profile: {aws_profile} Region: {aws_region}")
+    #print(f"Profile: {aws_profile} Region: {aws_region}")
     bedrock = boto3.client("bedrock", region_name=aws_region)
     bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
     bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
@@ -83,7 +83,7 @@ async def main(message: cl.Message):
     # Retrieve the chain from the user session
     chain = cl.user_session.get("chain")
 
-    res = await chain.acall(
+    res = await chain.ainvoke(
         message.content, 
         callbacks=[cl.AsyncLangchainCallbackHandler()]
     )
