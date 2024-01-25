@@ -5,6 +5,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ChatMessageHistory, ConversationBufferMemory
 from langchain_community.retrievers import AmazonKnowledgeBasesRetriever
 import chainlit as cl
+from chainlit.input_widget import Select, Slider
 from typing import Optional
 
 aws_region = os.environ["AWS_REGION"]
@@ -21,27 +22,38 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
   else:
     return None
 
-@cl.on_chat_start
-async def main():
+async def setup_settings():
 
-    ##
-    #print(f"Profile: {aws_profile} Region: {aws_region}")
-    bedrock = boto3.client("bedrock", region_name=aws_region)
+    settings = await cl.ChatSettings(
+        [
+            Slider(
+                id="Temperature",
+                label="Temperature",
+                initial=0.0,
+                min=0,
+                max=1,
+                step=0.1,
+            )
+        ]
+    ).send()
+
+    print("setup_settings complete: ", settings)
+
+    return settings
+
+@cl.on_settings_update
+async def setup_agent(settings):
+
+    print("Setup agent with following settings: ", settings)
+
     bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
     bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
-
-    response = bedrock.list_foundation_models(byOutputModality="TEXT")
-
-    for item in response["modelSummaries"]:
-        print(item['modelId'])
-
-    ##
 
     llm = BedrockChat(
         client = bedrock_runtime,
         model_id = "anthropic.claude-v2", 
         model_kwargs = {
-            "temperature": 0,
+            "temperature": settings["Temperature"],
             "max_tokens_to_sample": 2048,
         }
     )
@@ -76,6 +88,30 @@ async def main():
 
     # Store the chain in the user session
     cl.user_session.set("chain", chain)
+
+def bedrock_list_models(bedrock):
+    response = bedrock.list_foundation_models(byOutputModality="TEXT")
+
+    for item in response["modelSummaries"]:
+        print(item['modelId'])
+
+@cl.on_chat_start
+async def main():
+
+    ##
+    #print(f"Profile: {aws_profile} Region: {aws_region}")
+    bedrock = boto3.client("bedrock", region_name=aws_region)
+    bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
+    bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
+
+    #bedrock_list_models(bedrock)
+
+    ##
+        
+    settings = await setup_settings()
+
+    await setup_agent(settings)
+
 
 @cl.on_message
 async def main(message: cl.Message):
