@@ -24,15 +24,23 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
 
 async def setup_settings():
 
+    model_ids = ["anthropic.claude-v2", "anthropic.claude-v2:1", "anthropic.claude-instant-v1"]
+
     settings = await cl.ChatSettings(
         [
+            Select(
+                id = "Model",
+                label = "Foundation Model",
+                values = model_ids,
+                initial_index = model_ids.index("anthropic.claude-v2"),
+            ),
             Slider(
-                id="Temperature",
-                label="Temperature",
-                initial=0.0,
-                min=0,
-                max=1,
-                step=0.1,
+                id = "Temperature",
+                label = "Temperature",
+                initial = 0.0,
+                min = 0,
+                max = 1,
+                step = 0.1,
             )
         ]
     ).send()
@@ -51,11 +59,12 @@ async def setup_agent(settings):
 
     llm = BedrockChat(
         client = bedrock_runtime,
-        model_id = "anthropic.claude-v2", 
+        model_id = settings["Model"], 
         model_kwargs = {
             "temperature": settings["Temperature"],
             "max_tokens_to_sample": 2048,
-        }
+        },
+        streaming = True
     )
 
     message_history = ChatMessageHistory()
@@ -104,7 +113,7 @@ async def main():
     bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
     bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
 
-    #bedrock_list_models(bedrock)
+    bedrock_list_models(bedrock)
 
     ##
         
