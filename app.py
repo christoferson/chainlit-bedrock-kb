@@ -42,7 +42,7 @@ async def main():
         model_id = "anthropic.claude-v2", 
         model_kwargs = {
             "temperature": 0,
-            "max_tokens_to_sample": 1024,
+            "max_tokens_to_sample": 2048,
         }
     )
 
