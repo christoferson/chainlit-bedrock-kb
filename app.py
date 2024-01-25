@@ -41,6 +41,14 @@ async def setup_settings():
                 min = 0,
                 max = 1,
                 step = 0.1,
+            ),
+            Slider(
+                id = "DocumentCount",
+                label = "Document Count",
+                initial = 1,
+                min = 1,
+                max = 5,
+                step = 1,
             )
         ]
     ).send()
@@ -74,7 +82,7 @@ async def setup_agent(settings):
         knowledge_base_id = knowledge_base_id,
         retrieval_config = {
             "vectorSearchConfiguration": {
-                "numberOfResults": 2
+                "numberOfResults": settings["DocumentCount"]
             }
         }
     )
@@ -113,7 +121,7 @@ async def main():
     bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
     bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
 
-    bedrock_list_models(bedrock)
+    #bedrock_list_models(bedrock)
 
     ##
         
