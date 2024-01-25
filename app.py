@@ -82,6 +82,8 @@ async def setup_agent(settings):
         model_id = settings["Model"], 
         model_kwargs = {
             "temperature": settings["Temperature"],
+            "top_p": 1,
+            "top_k": 250,
             "max_tokens_to_sample": int(settings["MaxTokenCount"]),
         },
         streaming = True
