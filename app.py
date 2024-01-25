@@ -24,7 +24,11 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
 
 async def setup_settings():
 
-    model_ids = ["anthropic.claude-v2", "anthropic.claude-v2:1", "anthropic.claude-instant-v1"]
+    model_ids = [
+        "anthropic.claude-v2", #"anthropic.claude-v2:0:18k",
+        "anthropic.claude-v2:1", #"anthropic.claude-v2:1:18k", "anthropic.claude-v2:1:200k", 
+        "anthropic.claude-instant-v1"
+    ]
 
     settings = await cl.ChatSettings(
         [
@@ -41,6 +45,14 @@ async def setup_settings():
                 min = 0,
                 max = 1,
                 step = 0.1,
+            ),
+            Slider(
+                id="MaxTokenCount",
+                label="Max Token Size",
+                initial = 2048,
+                min = 256,
+                max = 4096,
+                step = 256,
             ),
             Slider(
                 id = "DocumentCount",
@@ -70,7 +82,7 @@ async def setup_agent(settings):
         model_id = settings["Model"], 
         model_kwargs = {
             "temperature": settings["Temperature"],
-            "max_tokens_to_sample": 2048,
+            "max_tokens_to_sample": int(settings["MaxTokenCount"]),
         },
         streaming = True
     )
@@ -148,9 +160,10 @@ async def main(message: cl.Message):
     if source_documents:
         for source_idx, source_doc in enumerate(source_documents):
             source_name = f"source_{source_idx}"
-            # Create the text element referenced in the message
+            #print(source_doc.metadata['location']) # {'type': 'S3', 's3Location': {'uri': 's3://xxx'}}
+            source_content = f"{source_doc.metadata['score']} | {source_doc.page_content}"
             text_elements.append(
-                cl.Text(content=source_doc.page_content, name=source_name)
+                cl.Text(content=source_content, name=source_name)
             )
         source_names = [text_el.name for text_el in text_elements]
 
