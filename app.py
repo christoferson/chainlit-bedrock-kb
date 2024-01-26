@@ -55,6 +55,14 @@ async def setup_settings():
                 step = 0.1,
             ),
             Slider(
+                id = "TopK",
+                label = "Top K",
+                initial = 250,
+                min = 0,
+                max = 500,
+                step = 5,
+            ),
+            Slider(
                 id="MaxTokenCount",
                 label="Max Token Size",
                 initial = 2048,
@@ -73,14 +81,14 @@ async def setup_settings():
         ]
     ).send()
 
-    print("setup_settings complete: ", settings)
+    print("Save Settings: ", settings)
 
     return settings
 
 @cl.on_settings_update
 async def setup_agent(settings):
 
-    print("Setup agent with following settings: ", settings)
+    print("Setup Agent: ", settings)
 
     bedrock_runtime = boto3.client('bedrock-runtime', region_name=aws_region)
     bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=aws_region)
@@ -91,7 +99,7 @@ async def setup_agent(settings):
         model_kwargs = {
             "temperature": settings["Temperature"],
             "top_p": settings["TopP"],
-            "top_k": 250,
+            "top_k": settings["TopK"],
             "max_tokens_to_sample": int(settings["MaxTokenCount"]),
         },
         streaming = True
