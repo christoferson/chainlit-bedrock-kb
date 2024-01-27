@@ -99,7 +99,7 @@ async def setup_agent(settings):
         model_kwargs = {
             "temperature": settings["Temperature"],
             "top_p": settings["TopP"],
-            "top_k": settings["TopK"],
+            "top_k": int(settings["TopK"]),
             "max_tokens_to_sample": int(settings["MaxTokenCount"]),
         },
         streaming = True
@@ -107,7 +107,7 @@ async def setup_agent(settings):
 
     message_history = ChatMessageHistory()
     
-    retriever = AmazonKnowledgeBasesRetriever(
+    retriever = MyAmazonKnowledgeBasesRetriever(
         client = bedrock_agent_runtime,
         knowledge_base_id = knowledge_base_id,
         retrieval_config = {
@@ -130,7 +130,8 @@ async def setup_agent(settings):
         retriever = retriever,
         memory = memory,
         return_source_documents = True,
-        verbose = True
+        verbose = True,
+       # max_tokens_limit=1000,
     )
 
     # Store the chain in the user session
@@ -192,3 +193,17 @@ async def main(message: cl.Message):
 
     await cl.Message(content=answer, elements=text_elements).send()
 
+
+
+###
+    
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from typing import List
+    
+class MyAmazonKnowledgeBasesRetriever(AmazonKnowledgeBasesRetriever):
+
+    def _get_relevant_documents(self, query: str, *, run_manager: CallbackManagerForRetrieverRun) -> List[Document]:
+        print("---------------------------------")
+        nquery = query[0:998]
+        return AmazonKnowledgeBasesRetriever._get_relevant_documents(self, query=nquery, run_manager=run_manager)
