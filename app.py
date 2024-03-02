@@ -9,7 +9,10 @@ from chainlit.input_widget import Select, Slider
 from typing import Optional
 
 aws_region = os.environ["AWS_REGION"]
+AWS_REGION = os.environ["AWS_REGION"]
 #aws_profile = os.environ["AWS_PROFILE"]
+AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
+AUTH_ADMIN_PWD = os.environ["AUTH_ADMIN_PWD"]
 
 knowledge_base_id = os.environ["BEDROCK_KB_ID"]
 
@@ -17,12 +20,27 @@ knowledge_base_id = os.environ["BEDROCK_KB_ID"]
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
   # Fetch the user matching username from your database
   # and compare the hashed password with the value stored in the database
-  if (username, password) == ("admin", "admin"):
-    return cl.User(identifier="admin", metadata={"role": "admin", "provider": "credentials"})
+  if (username, password) == (AUTH_ADMIN_USR, AUTH_ADMIN_PWD):
+    return cl.User(identifier=AUTH_ADMIN_USR, metadata={"role": "admin", "provider": "credentials"})
   else:
     return None
 
 async def setup_settings():
+
+    bedrock = boto3.client("bedrock", region_name=AWS_REGION)
+    bedrock_agent = boto3.client('bedrock-agent', region_name=AWS_REGION)
+    
+    response = bedrock_agent.list_knowledge_bases(maxResults = 5)
+
+    kb_id_list = []
+    for i, knowledgeBaseSummary in enumerate(response['knowledgeBaseSummaries']):
+        knowledgeBaseId = knowledgeBaseSummary['knowledgeBaseId']
+        name = knowledgeBaseSummary['name']
+        description = knowledgeBaseSummary['description']
+        status = knowledgeBaseSummary['status']
+        updatedAt = knowledgeBaseSummary['updatedAt']
+        #print(f"{i} RetrievalResult: {knowledgeBaseId} {name} {description} {status} {updatedAt}")
+        kb_id_list.append(knowledgeBaseId)
 
     model_ids = [
         "anthropic.claude-v2", #"anthropic.claude-v2:0:18k",
@@ -32,6 +50,12 @@ async def setup_settings():
 
     settings = await cl.ChatSettings(
         [
+            Select(
+                id="KnowledgeBase",
+                label="Amazon Bedrock - KnowledgeBase",
+                values=kb_id_list,
+                initial_index=0#model_ids.index("anthropic.claude-v2"),
+            ),
             Select(
                 id = "Model",
                 label = "Foundation Model",
